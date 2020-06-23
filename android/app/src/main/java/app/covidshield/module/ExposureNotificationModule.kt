@@ -17,6 +17,7 @@ import app.covidshield.extensions.toWritableMap
 import app.covidshield.models.Configuration
 import app.covidshield.models.ExposureKey
 import app.covidshield.utils.ActivityResultHelper
+import app.covidshield.utils.logTek
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -92,14 +93,35 @@ class ExposureNotificationModule(context: ReactApplicationContext) : ReactContex
             val files = diagnosisKeysURLs.parse(String::class.java).map { File(it) }
             val token = UUID.randomUUID().toString()
 
+            logTek(files)
+
             exposureNotificationClient.provideDiagnosisKeys(files, exposureConfiguration, token).await()
 
             files.forEach { it.cleanup() }
             val exposureSummary = exposureNotificationClient.getExposureSummary(token).await()
             val summary = exposureSummary.toSummary()
+
+            val lastExposureDate = Calendar.getInstance().apply {
+                time = Date()
+                add(Calendar.DAY_OF_YEAR, -summary.daysSinceLastExposure)
+            }.time
+
             promise.resolve(summary.toWritableMap().apply {
                 putString(SUMMARY_HIDDEN_KEY, token)
             })
+
+            /**
+             * override suspend fun processKeys(
+            serverDate: Date,
+            summary: ExposureNotificationClient.ExposureSummary,
+            getInfos: suspend () -> List<ExposureNotificationClient.ExposureInformation>
+            ) {
+            val lastExposureDate = Calendar.getInstance().apply {
+                time = serverDate
+                add(Calendar.DAY_OF_YEAR, -summary.daysSinceLastExposure)
+            }.time
+
+             */
         }
     }
 
